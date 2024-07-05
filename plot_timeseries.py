@@ -91,7 +91,7 @@ def landCoverMask(landcovers):
 #     return b
 
 #Read Copernicus daily time series
-def readCopernicusTimeSeries(filename,hour,hourX,spuriousFile=None, region='global', landcover=None):
+def readCopernicusTimeSeries(filename,hour,hourX,spuriousFile=None, region='global', landcover=None, OneFile=True):
     path = '/xnilu_wrk/users/dgho/gfas/satDataAna/copernicus/archive'
     if spuriousFile != None:
         spu = fg.field(spuriousFile)
@@ -104,17 +104,34 @@ def readCopernicusTimeSeries(filename,hour,hourX,spuriousFile=None, region='glob
         t.append(hourtemp)
         hourtemp += dt.timedelta(days=1)
 
-    while hour <= hourX:
-        print(hour)
-        f = fg.Field(os.path.join(path,hour.strftime('%Y%m%d'),filename))
-        hour += dt.timedelta(days=1)
-        if landcover:
-            f.val = f.val*dlcmask
-        if spuriousFile != None:
-            spu = fg.field(spuriousFile)
-            f.val[spu.val>0] = 0
+    if OneFile:
+        with open(os.path.join('/xnilu_wrk/users/dgho/gfas/satDataAna/copernicus/',filename)) as fp:
+            while hour <= hourX:
+                print(hour)
+                try:
+                    f = fg.Field(fp)
+                except:
+                    break
+                hour += dt.timedelta(days=1)
+                if landcover:
+                    f.val = f.val*dlcmask
+                if spuriousFile != None:
+                    spu = fg.field(spuriousFile)
+                    f.val[spu.val>0] = 0
 
-        b.append(f.budget(region=region))
+                b.append(f.budget(region=region))
+    else:
+        while hour <= hourX:
+            print(hour)
+            f = fg.Field(os.path.join(path,hour.strftime('%Y%m%d'),filename))
+            hour += dt.timedelta(days=1)
+            if landcover:
+                f.val = f.val*dlcmask
+            if spuriousFile != None:
+                spu = fg.field(spuriousFile)
+                f.val[spu.val>0] = 0
+
+            b.append(f.budget(region=region))
 
 
     return t, b
@@ -328,9 +345,9 @@ def plot_GFAS_GFED_COP(species,hour,hourX,pickleName="GFEDGFASCOP",reRead=False,
     
     maximum = max(np.max(GFAS),np.max(GFED),np.max(COP))
 
-    plt.plot(t,GFAS,label="GFAS New EF",color='blue')
-    plt.plot(t,GFED,label="GFED5",color='red')
-    plt.plot(t,COP,label="GFAS Copernicus",color='yellow')
+    plt.plot(t,GFAS,label="GFAS-NEIVA avg: %.4g"%(np.sum(GFAS)/len(GFAS)),color='blue')
+    plt.plot(t,GFED,label="GFED5 avg: %.4g"%(np.sum(GFED)/len(GFED)),color='red')
+    plt.plot(t,COP,label="GFASv1.2 avg: %.4g"%(np.sum(COP)/len(COP)),color='yellow')
 
 
     plt.ylim(0,maximum*1.1)
@@ -344,31 +361,30 @@ def plot_GFAS_GFED_COP(species,hour,hourX,pickleName="GFEDGFASCOP",reRead=False,
 
     
 
-# Species = ['C3H6O','NH3','BC','CO2','CO','C2H6S','C2H6','CH2O','C5H8','CH4','NOx','N2O']#['DM','NMHC','OC','C3H8','C3H6','SO2']
+# Species = ['C3H6O','NH3','BC','CO2','CO','C2H6S','C2H6','CH2O','C5H8','CH4','NOx','N2O','NMHC','OC','C3H8','C3H6','SO2','DM']
 # hour = dt.datetime(2003,1,2,hour=12,minute=0)
 # hourX = dt.datetime(2020,12,31,hour=12,minute=0)
-# pickleName = "FullRun"
+# pickleName = "FinalRunFinal"
 # args = []
 # for species in Species:
 #     args.append([species,hour,hourX,pickleName])
 
-
 # pool = mp.Pool(2)
 # pool.starmap(plot_GFAS_GFED_COP,args)
 
-hour = dt.datetime(2020,1,1,hour=12,minute=0)
-hourX = dt.datetime(2020,3,1,hour=12,minute=0)
-name = str(fg.PARAMID['NOx']) + ".grb.gz"
-b3 = readTimeSeries('NOx',hour,hourX)
-t,b = readArchiveTimeSeries(name,hour,hourX)
-t,b2 = readCopernicusTimeSeries('NOx.grb',hour,hourX)
+# hour = dt.datetime(2020,1,1,hour=12,minute=0)
+# hourX = dt.datetime(2020,3,1,hour=12,minute=0)
+# name = str(fg.PARAMID['NOx']) + ".grb.gz"
+# b3 = readTimeSeries('NOx',hour,hourX)
+# t,b = readArchiveTimeSeries(name,hour,hourX)
+# t,b2 = readCopernicusTimeSeries('NOx.grb',hour,hourX)
 
 
-plt.plot(t,b,label="GFAS New EF",color='blue')
-plt.plot(t,b2,label="new COP",color='red')
-plt.plot(t,b3,label="GFAS Copernicus",color='yellow')
-plt.legend()
-plt.savefig("test.png")
+# plt.plot(t,b,label="GFAS New EF",color='blue')
+# plt.plot(t,b2,label="new COP",color='red')
+# plt.plot(t,b3,label="GFAS Copernicus",color='yellow')
+# plt.legend()
+# plt.savefig("test.png")
 
 
 
@@ -498,28 +514,28 @@ plt.savefig("test.png")
 # plt.show()
 # plt.clf()    
 
-# hour = dt.datetime(2020,1,1,hour=12)
-# hourX = dt.datetime(2020,12,31,hour=12)
-# f1 = ReadTotalGFEDField('DM.grb',hour,hourX,landcover=landcovers)
-# f2 = readArchiveField('210100.grb.gz',hour,hourX,spuriousFile=None, region='global', landcover=landcovers)
-# f1 *= 1000
-# f2 *= 1000
+hour = dt.datetime(2020,1,1,hour=12)
+hourX = dt.datetime(2020,12,31,hour=12)
+f1 = ReadTotalGFEDField('DM.grb',hour,hourX,landcover=landcovers)
+f2 = readArchiveField('210100.grb.gz',hour,hourX,spuriousFile=None, region='global', landcover=landcovers)
+f1 *= 1000
+f2 *= 1000
 
 
-# F = (f2-f1)
+F = (f2-f1)
 
-# PlottingField = fg.Field('GFAS_MCD14ML_VNP14ML_2003_2021_merged.grb2')
-# PlottingField.val = F
-# check = np.max(F) > np.abs(np.min(F))
-# print(check*np.max(F))
-# F[0,0] = -(check*np.max(F)) - (np.min(F)*(not check))
-# PlottingField.plot(outFile=('global' +'differences'+ param +".png"),countries='black',cmap='seismic')
+PlottingField = fg.Field('GFAS_MCD14ML_VNP14ML_2003_2021_merged.grb2')
+PlottingField.val = F
+check = np.max(F) > np.abs(np.min(F))
+print(check*np.max(F))
+#F[0,0] = -(check*np.max(F)) - (np.min(F)*(not check))
+PlottingField.plot(outFile=('global' +'differences'+ param +".png"),countries='black',maxValue=0.08,minValue=-0.08,cmap='seismic')
 
-# PlottingField.val = f1
-# PlottingField.plot(outFile=('global' +'GFED'+ param +".png"),countries='black')
+PlottingField.val = f1
+PlottingField.plot(outFile=('global' +'GFED'+ param +".png"),countries='black')
 
-# PlottingField.val = f2
-# PlottingField.plot(outFile=('Same_scale_as_GFED_'+'global' +'GFAS'+ param +".png"),countries='black',maxValue=0.075,cmap='gnuplot2_r')
+PlottingField.val = f2
+PlottingField.plot(outFile=('Same_scale_as_GFED_'+'global' +'GFAS'+ param +".png"),countries='black',maxValue=0.075)
 
 
 
